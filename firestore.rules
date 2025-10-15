@@ -1,0 +1,146 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() && 
+             request.auth.token.email in ['gustpaz@gmail.com', 'admin@zonafiscal.com', 'luxosegcontato@gmail.com'];
+    }
+
+    function hasAdminPermissions() {
+      return isAuthenticated() && 
+             (request.auth.token.email in ['gustpaz@gmail.com', 'admin@zonafiscal.com', 'luxosegcontato@gmail.com'] ||
+              request.auth.token.adminRole == 'Super Admin' ||
+              request.auth.token.adminPermissions != null);
+    }
+
+    // USER-ACCESSIBLE COLLECTIONS
+    match /users/{userId} {
+      // Users can read/update their own profile.
+      // Team members can list users from the same company.
+      // Admins can read/write any user.
+      allow read: if isOwner(userId) || hasAdminPermissions();
+      allow update: if isOwner(userId) || hasAdminPermissions();
+      allow list: if isAuthenticated();
+
+      // Subcollections
+      match /transactions/{transactionId} {
+        allow read, list: if isOwner(userId);
+        // Simplified: just check if user owns this collection
+        allow create, update, delete: if isOwner(userId);
+      }
+      
+      match /auditLogs/{logId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId);
+        allow update, delete: if false; // Audit logs should be immutable after creation
+      }
+
+      match /goals/{goalId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /budgets/{budgetId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      match /tickets/{ticketId} {
+        // A user can read/write tickets they own.
+        allow read, write: if isOwner(userId) || hasAdminPermissions();
+      }
+      
+      match /reports/{reportId} {
+        // Users can read/write their own reports
+        allow read, write: if isOwner(userId);
+      }
+    }
+    
+    // PLANS COLLECTION
+    // Everyone (including non-authenticated) can read plans (for /vendas page)
+    // Only Super Admins can create/update/delete plans
+    match /plans/{planId} {
+      allow read: if true; // Público - necessário para página de vendas
+      allow create, update, delete: if isSuperAdmin();
+    }
+    
+    // CAMPAIGNS COLLECTION
+    // Admins can manage marketing campaigns
+    // All authenticated users can read active campaigns (to display banners)
+    match /campaigns/{campaignId} {
+      allow read: if isAuthenticated();
+      allow write: if hasAdminPermissions();
+    }
+    
+    // PAYMENTS COLLECTION
+    // Only admins can read payments
+    // Stripe webhook can write (via Admin SDK on backend)
+    match /payments/{paymentId} {
+      allow read: if hasAdminPermissions();
+      allow write: if false; // Only backend (webhook) can write
+    }
+    
+    // ADMIN SETTINGS COLLECTION
+    // Only admins can read/write admin settings (tracking, integrations, etc)
+    match /admin/{document=**} {
+      allow read, write: if hasAdminPermissions();
+    }
+    
+    // INVITES COLLECTION
+    // Users can read/accept their own invites (by email)
+    // Only authenticated users (owners) can create invites
+    match /invites/{inviteId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated(); // Para aceitar convite
+      allow delete: if hasAdminPermissions();
+    }
+    
+    // ADMIN SETTINGS COLLECTION
+    // Only Super Admins can read/write admin settings (Slack config, etc)
+    match /admin_settings/{settingId} {
+      allow read, write: if isSuperAdmin();
+    }
+    
+    // LGPD - USER CONSENTS COLLECTION
+    // Users can read/write their own consents
+    match /user_consents/{userId} {
+      allow read, write: if isOwner(userId);
+      allow read: if hasAdminPermissions(); // Admins podem ler para auditoria
+    }
+    
+    // LGPD - DATA PROCESSING AUDIT COLLECTION
+    // Users can read their own audit logs
+    // System can write (via Admin SDK on backend)
+    match /data_processing_audit/{auditId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow read: if hasAdminPermissions(); // Admins podem ler todos os logs
+      allow write: if false; // Only backend can write
+    }
+    
+    // IMPORT BATCHES COLLECTION
+    // Users can read/create/update their own import batches
+    match /import_batches/{batchId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow delete: if false; // Never delete, only update status
+    }
+    
+    // ADMIN-ONLY ACCESSIBLE COLLECTIONS / QUERIES
+    match /{path=**}/tickets/{ticketId} {
+       // Admins can list all tickets from all users via collectionGroup query
+      allow list: if hasAdminPermissions();
+    }
+
+  }
+}

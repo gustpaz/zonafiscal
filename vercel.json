@@ -1,0 +1,9 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/lgpd-deadline-check",
+      "schedule": "0 9 * * *"
+    }
+  ]
+}
+
