@@ -1,0 +1,60 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRole == 'Super Admin';
+    }
+
+    // USER-ACCESSIBLE COLLECTIONS
+    match /users/{userId} {
+      // Users can read/update their own profile.
+      // Team members can list users from the same company.
+      // Admins can read/write any user.
+      allow read, update: if isOwner(userId) || isSuperAdmin();
+      allow list: if isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == resource.data.companyId;
+
+      // Subcollections
+      match /transactions/{transactionId} {
+        allow read: if isOwner(userId);
+        // On write, also ensure the transaction's userId matches the owner's userId
+        allow write: if isOwner(userId) && request.resource.data.userId == userId;
+      }
+      
+      match /auditLogs/{logId} {
+        allow read: if isOwner(userId);
+        allow write: if false; // Audit logs should be immutable for users
+      }
+
+      match /goals/{goalId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /budgets/{budgetId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      match /tickets/{ticketId} {
+        // A user can read/write tickets they own.
+        allow read, write: if isOwner(userId) || isSuperAdmin();
+      }
+    }
+    
+    // ADMIN-ONLY ACCESSIBLE COLLECTIONS / QUERIES
+    match /{path=**}/tickets/{ticketId} {
+       // Admins can list all tickets from all users via collectionGroup query
+      allow list: if isSuperAdmin();
+    }
+  }
+}
