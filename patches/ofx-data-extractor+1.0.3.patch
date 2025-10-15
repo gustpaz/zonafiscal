@@ -1,0 +1,34 @@
+diff --git a/node_modules/ofx-data-extractor/dist/esm/index.js b/node_modules/ofx-data-extractor/dist/esm/index.js
+index 9214cf2..638202b 100644
+--- a/node_modules/ofx-data-extractor/dist/esm/index.js
++++ b/node_modules/ofx-data-extractor/dist/esm/index.js
+@@ -1,5 +1,6 @@
+ import { OfxStructureValidator, RequiredFieldsValidator, StrukturValidator, } from 'struktur-validator';
+-import { readFileSync } from 'fs';
++// import { readFileSync } from 'fs';
+ import { XMLParser } from 'fast-xml-parser';
+ const options = {
+     ignoreAttributes: false,
+@@ -10,7 +11,7 @@ class OfxExtractor {
+     ofxClean;
+     ofxParsed;
+     constructor(OfxBuffer) {
+-        this.ofxFile = readFileSync(OfxBuffer);
++        this.ofxFile = OfxBuffer;
+     }
+     build() {
+         try {
+diff --git a/node_modules/ofx-data-extractor/dist/esm/index.min.js b/node_modules/ofx-data-extractor/dist/esm/index.min.js
+index eea0729..24e933e 100644
+--- a/node_modules/ofx-data-extractor/dist/esm/index.min.js
++++ b/node_modules/ofx-data-extractor/dist/esm/index.min.js
+@@ -1,5 +1,5 @@
+ import{OfxStructureValidator as t,RequiredFieldsValidator as r,StrukturValidator as e}from"struktur-validator";
+-import{readFileSync as i}from"fs";
++// import{readFileSync as i}from"fs";
+ import{XMLParser as n}from"fast-xml-parser";
+ const s={ignoreAttributes:!1,attributeNamePrefix:"@",parseTagValue:!1},o=class{ofxFile;ofxClean;ofxParsed;
+-constructor(t){this.ofxFile=i(t)}build(){try{this.cleanOfx();const t=new n(s);this.ofxParsed=t.parse(this.ofxClean);const r=new e;r.add(new t(this.ofxParsed)),r.add(new r(this.ofxParsed)),r.validate()}catch(t){throw new Error(`error on build ofx: ${t.message}`)}}parse(){this.build();const t=this.ofxParsed.OFX.BANKMSGSRSV1.STMTTRNRS.STMTRS,r=this.ofxParsed.OFX.SIGNONMSGSRSV1.SONRS,e=this.ofxParsed.OFX.BANKMSGSRSV1.STMTTRNRS.STMTRS.BANKACCTFROM;return{header:r,bankAccount:e,transactions:t.BANKTRANLIST.STMTTRN}}cleanOfx(){const t=this.ofxFile.toString("utf-8"),r=t.split("<OFX>"),e=r[1].split("</OFX>")[0];this.ofxClean=`<OFX>${e}</OFX>`}};export{o as OfxExtractor};
+\ No newline at end of file
++constructor(t){this.ofxFile=t}build(){try{this.cleanOfx();const t=new n(s);this.ofxParsed=t.parse(this.ofxClean);const r=new e;r.add(new t(this.ofxParsed)),r.add(new r(this.ofxParsed)),r.validate()}catch(t){throw new Error(`error on build ofx: ${t.message}`)}}parse(){this.build();const t=this.ofxParsed.OFX.BANKMSGSRSV1.STMTTRNRS.STMTRS,r=this.ofxParsed.OFX.SIGNONMSGSRSV1.SONRS,e=this.ofxParsed.OFX.BANKMSGSRSV1.STMTTRNRS.STMTRS.BANKACCTFROM;return{header:r,bankAccount:e,transactions:t.BANKTRANLIST.STMTTRN}}cleanOfx(){const t=this.ofxFile.toString("utf-8"),r=t.split("<OFX>"),e=r[1].split("</OFX>")[0];this.ofxClean=`<OFX>${e}</OFX>`}};export{o as OfxExtractor};
+\ No newline at end of file
